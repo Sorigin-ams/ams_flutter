@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "185432951219",
+    "project_id": "inspection-app-84887",
+    "storage_bucket": "inspection-app-84887.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:185432951219:android:6d2be8070426096e80e3c6",
+        "android_client_info": {
+          "package_name": "com.example.sk_ams"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA_Elp5xXpqI5KneZ31X1O8u9IHKT9qkFc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
