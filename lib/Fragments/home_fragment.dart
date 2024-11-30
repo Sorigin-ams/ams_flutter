@@ -1,32 +1,16 @@
 import 'package:flutter/material.dart';
-
 import 'package:flutter_mobx/flutter_mobx.dart';
-
 import 'package:sk_ams/Fragments/bookings_fragment.dart';
-
-import 'package:sk_ams/models/customer_details_model.dart';
-
 import 'package:sk_ams/screens/notification_screen.dart';
-
-
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sk_ams/Fragments/utils/images.dart';
-
 import 'package:sk_ams/Fragments/utils/widgets.dart';
-
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
-
 import 'package:sk_ams/screens/inspections.dart';
-
 import '../../custom_widget/space.dart';
-
 import '../main.dart';
-
 import '../screens/my_profile_screen.dart';
-
-import '../Fragments/utils/colors.dart';
-
 import 'package:sk_ams/Fragments/search_fragment.dart';
-
 import 'package:sk_ams/screens/Tasklistscreen.dart';
 import 'package:sk_ams/screens/ALoginScreen.dart';
 
@@ -75,7 +59,10 @@ class _HomeFragmentState extends State<HomeFragment> {
             ),
             TextButton(
               child: const Text('Yes'),
-              onPressed: () {
+              onPressed: () async {
+                SharedPreferences prefs = await SharedPreferences.getInstance();
+                await prefs.setBool('isLoggedIn', false);
+
                 Navigator.pushAndRemoveUntil(
                   context,
                   MaterialPageRoute(builder: (context) => const ALoginScreen()),
@@ -106,8 +93,11 @@ class _HomeFragmentState extends State<HomeFragment> {
     return Scaffold(
         appBar: AppBar(
           elevation: 1,
-          backgroundColor: transparent,
-          iconTheme: const IconThemeData(size: 28, color: Colors.black),
+          backgroundColor: appStore.isDarkModeOn ? Colors.black : Colors.white,
+          iconTheme: IconThemeData(
+            size: 28,
+            color: appStore.isDarkModeOn ? Colors.white : Colors.black,
+          ),
           title: Text(
             "Inspection App",
             style: TextStyle(
@@ -119,26 +109,14 @@ class _HomeFragmentState extends State<HomeFragment> {
           centerTitle: true,
           actions: [
             IconButton(
-              icon: const Icon(Icons.notifications, size: 24),
+              icon: Icon(Icons.notifications,
+                  size: 24,
+                  color: appStore.isDarkModeOn ? Colors.white : Colors.black),
               onPressed: () {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
                       builder: (context) => const NotificationScreen()),
-                );
-              },
-            ),
-            Observer(
-              builder: (context) {
-                return Padding(
-                  padding: const EdgeInsets.symmetric(
-                      vertical: 12.0, horizontal: 16.0),
-                  child: Switch(
-                    value: appStore.isDarkModeOn,
-                    onChanged: (value) {
-                      appStore.toggleDarkMode(value: value);
-                    },
-                  ),
                 );
               },
             ),
@@ -155,39 +133,11 @@ class _HomeFragmentState extends State<HomeFragment> {
                 padding: const EdgeInsets.only(
                     left: 24, right: 24, top: 40, bottom: 24),
                 color: appStore.isDarkModeOn ? Colors.black : Colors.white,
-                child: Column(
+                child: const Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                 // // children: [
-                 //    Container(
-                 //      padding: const EdgeInsets.all(16),
-                 //      decoration: BoxDecoration(
-                 //        shape: BoxShape.circle,
-                 //        color:
-                 //            appStore.isDarkModeOn ? whiteColor : Colors.black,
-                 //      ),
-                 //      child: Text(
-                 //        "K",
-                 //        style: TextStyle(
-                 //            fontSize: 24.0,
-                 //            color: appStore.isDarkModeOn
-                 //                ? Colors.black
-                 //                : whiteColor),
-                 //        textAlign: TextAlign.center,
-                 //      ),
-                 //    ),
-                 //    const Space(4),
-                 //    Text(
-                 //      getName,
-                 //      style: TextStyle(
-                 //          fontSize: 18,
-                 //          color:
-                 //              appStore.isDarkModeOn ? whiteColor : Colors.black,
-                 //          fontWeight: FontWeight.bold),
-                 //    ),
-                 //    const Space(4),
-                 //    Text(getEmail,
-                 //        style: const TextStyle(color: secondaryColor)),
-                 //  ],
+                  children: [
+                    // Add your user profile details here if necessary
+                  ],
                 ),
               ),
               drawerWidget(
@@ -224,19 +174,27 @@ class _HomeFragmentState extends State<HomeFragment> {
                   );
                 },
               ),
-              drawerWidget(
-                drawerTitle: "Contact Us",
-                drawerIcon: Icons.mail,
-                drawerOnTap: () {
-                  Navigator.pop(context);
-                },
-              ),
-              drawerWidget(
-                drawerTitle: "Help Center",
-                drawerIcon: Icons.question_mark_rounded,
-                drawerOnTap: () {
-                  Navigator.pop(context);
-                },
+              ListTile(
+                leading: Icon(
+                  appStore.isDarkModeOn ? Icons.nights_stay : Icons.wb_sunny,
+                  color: appStore.isDarkModeOn ? Colors.white : Colors.black,
+                ),
+                title: Text(
+                  "Switch Theme",
+                  style: TextStyle(
+                    color: appStore.isDarkModeOn ? Colors.white : Colors.black,
+                  ),
+                ),
+                trailing: Observer(
+                  builder: (context) {
+                    return Switch(
+                      value: appStore.isDarkModeOn,
+                      onChanged: (value) {
+                        appStore.toggleDarkMode(value: value);
+                      },
+                    );
+                  },
+                ),
               ),
               drawerWidget(
                 drawerTitle: "Logout",

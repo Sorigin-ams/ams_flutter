@@ -15,64 +15,68 @@ class _AResetPasswordScreenState extends State<AResetPasswordScreen> {
   var viewPassword1 = true;
   var viewPassword2 = true;
   final TextEditingController passwordController = TextEditingController();
-  final TextEditingController confirmPasswordController =
-      TextEditingController();
+  final TextEditingController confirmPasswordController = TextEditingController();
 
   void resetPassword() async {
-    if (passwordController.text.isEmpty ||
-        confirmPasswordController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Please enter and confirm your new password')));
+    if (passwordController.text.isEmpty || confirmPasswordController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter and confirm your new password')),
+      );
       return;
     }
 
     if (passwordController.text != confirmPasswordController.text) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Passwords do not match. Please try again.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Passwords do not match. Please try again.')),
+      );
       return;
     }
 
     // Save the new password securely
     await setValue('userPassword', passwordController.text);
 
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Your account password has been reset successfully')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Your account password has been reset successfully')),
+    );
 
     // Optionally, navigate to another screen after a successful reset
   }
 
   @override
   Widget build(BuildContext context) {
+    var backgroundColor = appStore.isDarkModeOn ? context.cardColor : appetitAppContainerColor;
+    var textColor = appStore.isDarkModeOn ? Colors.white : Colors.black;
+    var hintTextColor = appStore.isDarkModeOn ? Colors.grey.shade300 : Colors.grey;
+
     return Scaffold(
       resizeToAvoidBottomInset: false,
+      backgroundColor: appStore.isDarkModeOn ? Colors.black : Colors.white,
       body: Padding(
-        padding: const EdgeInsets.all(16), // Correctly use colons
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             SizedBox(height: MediaQuery.of(context).viewPadding.top),
             InkWell(
-              onTap: () => Navigator.pop(context), // Correct function syntax
+              onTap: () => Navigator.pop(context),
               child: Container(
                 width: 50,
                 height: 50,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(25),
-                  color: appStore.isDarkModeOn
-                      ? context.cardColor
-                      : appetitAppContainerColor,
+                  color: backgroundColor,
                 ),
-                child: const Icon(Icons.arrow_back_ios_outlined,
-                    color: appetitBrownColor), // Correctly use parameters
+                child: const Icon(Icons.arrow_back_ios_outlined, color: appetitBrownColor),
               ),
             ),
-            const SizedBox(height: 60), // Use colons after parameter names
-            const Text('Reset Password',
-                style: TextStyle(fontSize: 40, fontWeight: FontWeight.w600)),
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 16.0),
+            const SizedBox(height: 60),
+            Text('Reset Password', style: TextStyle(fontSize: 40, fontWeight: FontWeight.w600, color: textColor)),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16.0),
               child: Text(
-                  'Enter your new password twice another for confirmation for this account.'),
+                'Enter your new password twice for confirmation for this account.',
+                style: TextStyle(color: textColor),
+              ),
             ),
             ClipRRect(
               borderRadius: BorderRadius.circular(15),
@@ -82,26 +86,22 @@ class _AResetPasswordScreenState extends State<AResetPasswordScreen> {
                 obscureText: viewPassword1,
                 decoration: InputDecoration(
                   filled: true,
-                  labelStyle: const TextStyle(color: Colors.grey),
-                  fillColor: appStore.isDarkModeOn
-                      ? context.cardColor
-                      : appetitAppContainerColor,
+                  labelStyle: TextStyle(color: hintTextColor),
+                  fillColor: backgroundColor,
                   border: InputBorder.none,
-                  labelText: 'Enter password', // Correctly use colons
+                  labelText: 'Enter password',
                   hintText: 'Enter your password',
-                  hintStyle: const TextStyle(color: Colors.grey),
+                  hintStyle: TextStyle(color: hintTextColor),
                   suffixIcon: IconButton(
                     icon: viewPassword1
-                        ? const Icon(Icons.visibility_off_outlined,
-                            color: Colors.grey)
-                        : const Icon(Icons.visibility, color: Colors.grey),
-                    onPressed: () => setState(() =>
-                        viewPassword1 = !viewPassword1), // Proper use of lambda
+                        ? Icon(Icons.visibility_off_outlined, color: hintTextColor)
+                        : Icon(Icons.visibility, color: hintTextColor),
+                    onPressed: () => setState(() => viewPassword1 = !viewPassword1),
                   ),
                 ),
               ),
             ),
-            const SizedBox(height: 16), // Use colons after parameter names
+            const SizedBox(height: 16),
             ClipRRect(
               borderRadius: BorderRadius.circular(15),
               child: TextFormField(
@@ -109,67 +109,54 @@ class _AResetPasswordScreenState extends State<AResetPasswordScreen> {
                 obscureText: viewPassword2,
                 decoration: InputDecoration(
                   filled: true,
-                  labelStyle: const TextStyle(color: Colors.grey),
-                  fillColor: appStore.isDarkModeOn
-                      ? context.cardColor
-                      : appetitAppContainerColor,
+                  labelStyle: TextStyle(color: hintTextColor),
+                  fillColor: backgroundColor,
                   border: InputBorder.none,
-                  labelText: 'Confirm password', // Correctly use colons
+                  labelText: 'Confirm password',
                   hintText: 'Confirm your password',
-                  hintStyle: const TextStyle(color: Colors.grey),
+                  hintStyle: TextStyle(color: hintTextColor),
                   suffixIcon: IconButton(
                     icon: viewPassword2
-                        ? const Icon(Icons.visibility_off_outlined,
-                            color: Colors.grey)
-                        : const Icon(Icons.visibility, color: Colors.grey),
-                    onPressed: () => setState(() =>
-                        viewPassword2 = !viewPassword2), // Proper use of lambda
+                        ? Icon(Icons.visibility_off_outlined, color: hintTextColor)
+                        : Icon(Icons.visibility, color: hintTextColor),
+                    onPressed: () => setState(() => viewPassword2 = !viewPassword2),
                   ),
                 ),
               ),
             ),
-            const Spacer(), // Ensure proper use of Spacer widget
+            const Spacer(),
             Align(
               alignment: Alignment.bottomRight,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   ElevatedButton(
-                    onPressed: resetPassword, // Correct function reference
+                    onPressed: resetPassword,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.green.shade600,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(15),
-                      ),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                     ),
-                    child: const Text('Reset Password',
-                        style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white)),
+                    child: const Text(
+                      'Reset Password',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                    ),
                   ),
-                  const SizedBox(
-                      height: 16), // Use colons after parameter names
+                  const SizedBox(height: 16),
                   ElevatedButton(
                     onPressed: () {
                       Navigator.pushReplacement(
                         context,
-                        MaterialPageRoute(
-                          builder: (context) => const ALoginScreen(),
-                        ),
-                      ); // Navigate to the login screen
+                        MaterialPageRoute(builder: (context) => const ALoginScreen()),
+                      );
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: appetitBrownColor,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(15),
-                      ),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                     ),
-                    child: const Text('Back to Login',
-                        style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white)),
+                    child: const Text(
+                      'Back to Login',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                    ),
                   ),
                 ],
               ),

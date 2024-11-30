@@ -1,157 +1,114 @@
 import 'package:flutter/material.dart';
 
-class EditObservationDetailsScreen extends StatefulWidget {
-  final Map<String, dynamic>
-      observation; // Using a Map to pass all observation details
+class ObservationEditScreen extends StatefulWidget {
+  final Map<String, dynamic>? observation;
 
-  const EditObservationDetailsScreen({
-    super.key,
-    required this.observation,
-  });
+  const ObservationEditScreen({super.key, this.observation});
 
   @override
-  _EditObservationDetailsScreenState createState() =>
-      _EditObservationDetailsScreenState();
+  _ObservationEditScreenState createState() => _ObservationEditScreenState();
 }
 
-class _EditObservationDetailsScreenState
-    extends State<EditObservationDetailsScreen> {
-  final _formKey = GlobalKey<FormState>();
-  late String _observationName;
-  late String _inspectionBy;
-  late String _inspectionTeam;
-  late String _inspectionDate;
+class _ObservationEditScreenState extends State<ObservationEditScreen> {
+  final TextEditingController _inspectionByController = TextEditingController();
+  final TextEditingController _inspectionTeamController = TextEditingController();
+  final TextEditingController _inspectionDateController = TextEditingController();
+  final TextEditingController _observationsController = TextEditingController();
+  final TextEditingController _targetDateController = TextEditingController();
+  final TextEditingController _actionToBeTakenController = TextEditingController();
+  final TextEditingController _impactOfDeviationsController = TextEditingController();
+  final TextEditingController _evidenceForNCsClosureController = TextEditingController();
+
+  String? _criticality;
+  String? _status;
+  List<String> _referenceImages = [];
+  List<String> _evidenceImages = [];
 
   @override
   void initState() {
     super.initState();
-    // Initialize form fields with observation data
-    _observationName = widget.observation['observationName'] ?? '';
-    _inspectionBy = widget.observation['inspectionBy'] ?? '';
-    _inspectionTeam = widget.observation['inspectionTeam'] ?? '';
-    _inspectionDate = widget.observation['inspectionDate'] ?? '';
+    if (widget.observation != null) {
+      _inspectionByController.text = widget.observation!['inspectionBy'] ?? '';
+      _inspectionTeamController.text = widget.observation!['inspectionTeam'] ?? '';
+      _inspectionDateController.text = widget.observation!['inspectionDate'] ?? '';
+      _observationsController.text = widget.observation!['observations'] ?? '';
+      _targetDateController.text = widget.observation!['targetDate'] ?? '';
+      _actionToBeTakenController.text = widget.observation!['actionToBeTaken'] ?? '';
+      _impactOfDeviationsController.text = widget.observation!['impactOfDeviations'] ?? '';
+      _evidenceForNCsClosureController.text = widget.observation!['evidenceForNCsClosure'] ?? '';
+      _criticality = widget.observation!['criticality'];
+      _status = widget.observation!['status'];
+      _referenceImages = List<String>.from(widget.observation!['referenceImages'] ?? []);
+      _evidenceImages = List<String>.from(widget.observation!['evidenceImages'] ?? []);
+    }
+  }
+
+  void _submitForm() {
+    Map<String, dynamic> observation = {
+      'inspectionBy': _inspectionByController.text,
+      'inspectionTeam': _inspectionTeamController.text,
+      'inspectionDate': _inspectionDateController.text,
+      'observations': _observationsController.text,
+      'targetDate': _targetDateController.text,
+      'actionToBeTaken': _actionToBeTakenController.text,
+      'impactOfDeviations': _impactOfDeviationsController.text,
+      'evidenceForNCsClosure': _evidenceForNCsClosureController.text,
+      'criticality': _criticality,
+      'status': _status,
+      'referenceImages': _referenceImages,
+      'evidenceImages': _evidenceImages,
+    };
+
+    Navigator.pop(context, observation); // Return the observation data back
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        centerTitle: true,
-        elevation: 0,
-        backgroundColor: Colors.transparent,
-        title: const Text(
-          "Edit Observation",
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontWeight: FontWeight.w900,
-            fontSize: 20,
-            color: Colors.black,
-          ),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.save, color: Colors.black),
-            onPressed: _saveChanges,
-          ),
-        ],
+        title: const Text('Edit Observation'),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: SingleChildScrollView(
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildField(
-                  label: "Observation Name",
-                  initialValue: _observationName,
-                  onSaved: (value) => _observationName = value!,
-                ),
-                const SizedBox(height: 16),
-                _buildField(
-                  label: "Inspection By",
-                  initialValue: _inspectionBy,
-                  onSaved: (value) => _inspectionBy = value!,
-                ),
-                const SizedBox(height: 16),
-                _buildField(
-                  label: "Inspection Team",
-                  initialValue: _inspectionTeam,
-                  onSaved: (value) => _inspectionTeam = value!,
-                ),
-                const SizedBox(height: 16),
-                _buildField(
-                  label: "Inspection Date",
-                  initialValue: _inspectionDate,
-                  onSaved: (value) => _inspectionDate = value!,
-                ),
-                const SizedBox(height: 24),
-                Center(
-                  child: ElevatedButton(
-                    onPressed: _saveChanges,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 32, vertical: 16),
-                      textStyle: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(30),
-                      ),
-                      elevation: 5,
-                    ),
-                    child: const Text("Save Changes"),
-                  ),
-                ),
-              ],
-            ),
+          child: Column(
+            children: [
+              TextField(
+                controller: _inspectionByController,
+                decoration: const InputDecoration(labelText: 'Inspection By'),
+              ),
+              TextField(
+                controller: _inspectionTeamController,
+                decoration: const InputDecoration(labelText: 'Inspection Team'),
+              ),
+              TextField(
+                controller: _inspectionDateController,
+                decoration: const InputDecoration(labelText: 'Inspection Date'),
+              ),
+              TextField(
+                controller: _observationsController,
+                decoration: const InputDecoration(labelText: 'Observations'),
+              ),
+              TextField(
+                controller: _targetDateController,
+                decoration: const InputDecoration(labelText: 'Target Date'),
+              ),
+              TextField(
+                controller: _actionToBeTakenController,
+                decoration: const InputDecoration(labelText: 'Action to be Taken'),
+              ),
+              TextField(
+                controller: _impactOfDeviationsController,
+                decoration: const InputDecoration(labelText: 'Impact of Deviations'),
+              ),
+              TextField(
+                controller: _evidenceForNCsClosureController,
+                decoration: const InputDecoration(labelText: 'Evidence for NCs Closure'),
+              ),
+            ],
           ),
         ),
       ),
     );
-  }
-
-  Widget _buildField({
-    required String label,
-    required String initialValue,
-    required FormFieldSetter<String> onSaved,
-  }) {
-    return TextFormField(
-      initialValue: initialValue,
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: const TextStyle(color: Colors.green),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderSide: const BorderSide(color: Colors.green),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      ),
-      validator: (value) {
-        if (value == null || value.isEmpty) {
-          return 'Please enter a value';
-        }
-        return null;
-      },
-      onSaved: onSaved,
-    );
-  }
-
-  void _saveChanges() {
-    if (_formKey.currentState!.validate()) {
-      _formKey.currentState!.save();
-      // Implement saving logic here, such as updating the database or state
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Changes saved!')),
-      );
-    }
   }
 }

@@ -2,8 +2,9 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:connectivity/connectivity.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:sk_ams/screens/projectsdescription.dart'; // Import the projectdescription.dart file
+import 'package:sk_ams/screens/projectsdescription.dart';
 
 class ServicesModel {
   final int id;
@@ -45,48 +46,26 @@ class ServicesModel {
   }
 }
 
-Future<void> fetchAndSaveServices() async {
+Future<List<ServicesModel>> getServices() async {
   try {
     final response = await http.get(Uri.parse('https://webigosolutions.in/apitest.php?type=project_list'));
 
     if (response.statusCode == 200) {
       final data = json.decode(response.body) as List;
       List<ServicesModel> services = data.map((json) => ServicesModel.fromJson(json)).toList();
-
-      final directory = await getExternalStorageDirectory();
-      final path = '${directory!.path}/services.json';
-      final file = File(path);
-      final jsonData = jsonEncode(services.map((service) => service.toJson()).toList());
-      await file.writeAsString(jsonData);
-
-      print('Data saved to $path');
+      return services;
     } else {
       throw Exception('Failed to load projects');
     }
   } catch (e) {
-    print('Error fetching and saving services: $e');
+    print('Error fetching data: $e');
+    return [];
   }
 }
 
-Future<List<ServicesModel>> loadServicesFromFile() async {
-  try {
-    final directory = await getExternalStorageDirectory();
-    final path = '${directory!.path}/services.json';
-    final file = File(path);
-
-    if (await file.exists()) {
-      final jsonString = await file.readAsString();
-      final List<dynamic> jsonData = jsonDecode(jsonString);
-      print('Data loaded from $path');
-      return jsonData.map((jsonItem) => ServicesModel.fromJson(jsonItem)).toList();
-    } else {
-      print('File not found at $path');
-      return [];
-    }
-  } catch (e) {
-    print('Error loading data from file: $e');
-    return [];
-  }
+Future<bool> hasInternetConnection() async {
+  var connectivityResult = await (Connectivity().checkConnectivity());
+  return connectivityResult != ConnectivityResult.none;
 }
 
 class ProjectListScreen extends StatefulWidget {
@@ -97,49 +76,140 @@ class ProjectListScreen extends StatefulWidget {
 }
 
 class _ProjectListScreenState extends State<ProjectListScreen> {
-  late Future<List<ServicesModel>> _futureServices;
-  List<ServicesModel> _allServices = []; // All services
-  List<ServicesModel> _filteredServices = []; // Filtered services
-  final TextEditingController _searchController = TextEditingController(); // Search bar controller
+  List<ServicesModel> _services = [];
+  List<ServicesModel> _filteredServices = [];
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _futureServices = loadServicesFromFile();
-    _futureServices.then((services) {
-      setState(() {
-        _allServices = services;
-        _filteredServices = services; // Initially, show all services
-      });
-    });
-    _searchController.addListener(_filterServices); // Add listener for search
+    _loadData();
+    _searchController.addListener(_onSearchTextChanged);
   }
 
-  // Filter services based on search input
-  void _filterServices() {
-    final query = _searchController.text.toLowerCase();
-    setState(() {
-      if (query.isEmpty) {
-        _filteredServices = _allServices; // Show all services if no search query
+  // Get file path for local storage
+  Future<String> _getFilePath(String fileName) async {
+    final directory = await getApplicationDocumentsDirectory();
+    return '${directory.path}/$fileName';
+  }
+
+  // Save data to both projects.json and inspections.json
+  Future<void> _saveToFile(List<ServicesModel> services) async {
+    try {
+      // Save to projects.json
+      final projectsFilePath = await _getFilePath('projects.json');
+      final projectsFile = File(projectsFilePath);
+      List<Map<String, dynamic>> jsonData =
+      services.map((service) => service.toJson()).toList();
+      await projectsFile.writeAsString(jsonEncode(jsonData));
+      print("Data saved to file: $projectsFilePath");
+
+      // Save to inspections.json
+      final inspectionsFilePath = await _getFilePath('inspections.json');
+      final inspectionsFile = File(inspectionsFilePath);
+      await inspectionsFile.writeAsString(jsonEncode(jsonData));
+      print("Data saved to file: $inspectionsFilePath");
+    } catch (e) {
+      print("Error saving data to file: $e");
+    }
+  }
+
+  // Load data from the local file
+  Future<List<ServicesModel>> _loadFromFile() async {
+    try {
+      final filePath = await _getFilePath('projects.json');
+      final file = File(filePath);
+      if (await file.exists()) {
+        final content = await file.readAsString();
+        final List<dynamic> jsonData = jsonDecode(content);
+        return jsonData.map((json) => ServicesModel.fromJson(json)).toList();
       } else {
-        _filteredServices = _allServices
-            .where((service) =>
-        service.title.toLowerCase().contains(query) ||
-            service.description.toLowerCase().contains(query))
-            .toList();
+        print("File does not exist.");
+        return [];
       }
+    } catch (e) {
+      print("Error reading data from file: $e");
+      return [];
+    }
+  }
+
+  // Load data (from API or local storage)
+  Future<void> _loadData() async {
+    if (await hasInternetConnection()) {
+      List<ServicesModel> services = await getServices();
+      setState(() {
+        _services = services;
+        _filteredServices = services;
+      });
+      await _saveToFile(services); // Save to local files (projects.json & inspections.json)
+      print("Loaded services from API: ${jsonEncode(services.map((s) => s.toJson()).toList())}");
+    } else {
+      _showNoInternetPopup();
+      List<ServicesModel> services = await _loadFromFile(); // Load from local file
+      if (services.isEmpty) {
+        _showNoDataPopup();
+      }
+      setState(() {
+        _services = services;
+        _filteredServices = services;
+      });
+      print("Loaded services from file: ${jsonEncode(services.map((s) => s.toJson()).toList())}");
+    }
+  }
+
+  // Search filter
+  void _onSearchTextChanged() {
+    String searchText = _searchController.text.toLowerCase();
+    setState(() {
+      _filteredServices = _services
+          .where((service) =>
+      service.title.toLowerCase().contains(searchText) ||
+          service.description.toLowerCase().contains(searchText))
+          .toList();
     });
   }
 
+  // No Internet Popup
+  void _showNoInternetPopup() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('No Internet Connection'),
+        content: const Text('Please check your internet connection.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // No Data Popup
+  void _showNoDataPopup() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('No Data Available'),
+        content: const Text('No data available in local storage.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Refresh data manually
   Future<void> _refreshData() async {
-    await fetchAndSaveServices();
-    _futureServices = loadServicesFromFile();
-    _futureServices.then((services) {
-      setState(() {
-        _allServices = services;
-        _filteredServices = services; // Reset after refresh
-      });
-    });
+    if (await hasInternetConnection()) {
+      await _loadData();
+    } else {
+      _showNoInternetPopup();
+    }
   }
 
   @override
@@ -165,86 +235,82 @@ class _ProjectListScreenState extends State<ProjectListScreen> {
             onPressed: _refreshData,
           ),
         ],
-      ),
-      body: Column(
-        children: [
-          Padding(
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(60.0),
+          child: Padding(
             padding: const EdgeInsets.all(8.0),
             child: TextField(
               controller: _searchController,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 hintText: 'Search projects...',
-                prefixIcon: Icon(Icons.search),
+                filled: true,
+                fillColor: isDarkMode ? Colors.grey[800] : Colors.white,
+                prefixIcon: const Icon(Icons.search),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide.none,
+                ),
               ),
             ),
           ),
-          Expanded(
-            child: _filteredServices.isEmpty
-                ? const Center(child: Text('No projects found')) // Show if no results
-                : ListView.builder(
-              itemCount: _filteredServices.length,
-              itemBuilder: (context, index) {
-                final service = _filteredServices[index];
-                return Padding(
-                  padding: const EdgeInsets.symmetric(
-                      vertical: 8.0, horizontal: 16.0),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: isDarkMode ? Colors.grey[800] : Colors.grey[100],
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(isDarkMode ? 0.3 : 0.1),
-                          blurRadius: 4,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: ListTile(
-                      contentPadding: const EdgeInsets.all(16),
-                      title: Text(
-                        service.title,
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: isDarkMode ? Colors.white : Colors.black,
-                        ),
-                      ),
-                      subtitle: Text(
-                        service.description,
-                        style: TextStyle(
-                          color: isDarkMode ? Colors.white70 : Colors.black54,
-                        ),
-                      ),
-                      leading: Image.asset(
-                        service.icon,
-                        width: 30,
-                        height: 30,
-                      ),
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => ProjectDetailScreen(
-                              projectName: service.project,
-                            ),
-                          ),
-                        );
-                      },
-                    ),
+        ),
+      ),
+      body: _filteredServices.isEmpty
+          ? const Center(child: Text('No result found'))
+          : ListView.builder(
+        itemCount: _filteredServices.length,
+        itemBuilder: (context, index) {
+          final service = _filteredServices[index];
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+            child: Container(
+              decoration: BoxDecoration(
+                color: isDarkMode ? Colors.grey[800] : Colors.grey[100],
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(isDarkMode ? 0.3 : 0.1),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
                   ),
-                );
-              },
+                ],
+              ),
+              child: ListTile(
+                contentPadding: const EdgeInsets.all(16),
+                title: Text(
+                  service.title,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: isDarkMode ? Colors.white : Colors.black,
+                  ),
+                ),
+                subtitle: Text(
+                  service.description,
+                  style: TextStyle(
+                    color: isDarkMode ? Colors.white70 : Colors.black54,
+                  ),
+                ),
+                leading: Image.asset(
+                  service.icon,
+                  width: 30,
+                  height: 30,
+                ),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ProjectDetailScreen(
+                        projectName: service.project,
+                      ),
+                    ),
+                  );
+                },
+              ),
             ),
-          ),
-        ],
+          );
+        },
       ),
     );
-  }
-
-  @override
-  void dispose() {
-    _searchController.dispose(); // Dispose search controller
-    super.dispose();
   }
 }
 

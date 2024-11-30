@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:sk_ams/utils/utils/AColors.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+
 import 'package:nb_utils/nb_utils.dart';
 import 'package:sk_ams/main.dart';
 import 'package:sk_ams/screens/AResetPasswordScreen.dart';
@@ -12,62 +14,53 @@ class AForgetPasswordScreen extends StatefulWidget {
 }
 
 class _AForgetPasswordScreenState extends State<AForgetPasswordScreen> {
-  final TextEditingController emailOrMobileController = TextEditingController();
+  final TextEditingController emailController = TextEditingController();
   final TextEditingController otpController = TextEditingController();
   GlobalKey<FormState> myFormKey = GlobalKey<FormState>();
 
-  // Placeholder for the OTP service or method
-  final OTPService otpService = OTPService();
+  final String apiBaseUrl = 'https://example.com/api'; // Replace with actual API base URL
 
-  // Method to check if input is an email or a mobile number
   bool isEmail(String input) {
     final emailRegExp = RegExp(
         r"^[a-zA-Z0-9.a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9]+\.[a-zA-Z]+");
     return emailRegExp.hasMatch(input);
   }
 
-  // Send OTP method
-  void sendOTP() async {
-    String input = emailOrMobileController.text.trim();
-    if (input.isEmpty) {
+  Future<void> sendOTP() async {
+    String email = emailController.text.trim();
+    if (email.isEmpty || !isEmail(email)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter email or mobile number')),
+        const SnackBar(content: Text('Please enter a valid email address')),
       );
       return;
     }
 
-    bool isEmailInput = isEmail(input);
+    Uri url = Uri.parse('$apiBaseUrl/sendOtpEmail');
 
-    if (isEmailInput) {
-      // Sending OTP via email
-      bool res = await otpService.sendOtpViaEmail(input);
-      if (res) {
+    try {
+      final response = await http.post(url, body: json.encode({'email': email}), headers: {
+        'Content-Type': 'application/json',
+      });
+
+      if (response.statusCode == 200) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('OTP sent to your email')),
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to send OTP to your email')),
+          const SnackBar(content: Text('Failed to send OTP. Please try again.')),
         );
       }
-    } else {
-      // Sending OTP via mobile
-      bool res = await otpService.sendOtpViaMobile(input);
-      if (res) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('OTP sent to your mobile')),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to send OTP to your mobile')),
-        );
-      }
+    } catch (e) {
+      print('Error sending OTP: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('An error occurred. Please try again.')),
+      );
     }
   }
 
-  // Verify OTP method
-  void verifyOTP() {
-    String input = emailOrMobileController.text.trim();
+  Future<void> verifyOTP() async {
+    String email = emailController.text.trim();
     String otp = otpController.text.trim();
 
     if (otp.isEmpty) {
@@ -77,26 +70,30 @@ class _AForgetPasswordScreenState extends State<AForgetPasswordScreen> {
       return;
     }
 
-    bool isEmailInput = isEmail(input);
-    bool res;
+    Uri url = Uri.parse('$apiBaseUrl/verifyOtpEmail');
 
-    if (isEmailInput) {
-      res = otpService.verifyOtpForEmail(input, otp);
-    } else {
-      res = otpService.verifyOtpForMobile(input, otp);
-    }
+    try {
+      final response = await http.post(url, body: json.encode({'email': email, 'otp': otp}), headers: {
+        'Content-Type': 'application/json',
+      });
 
-    if (res) {
+      if (response.statusCode == 200) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('OTP verified successfully')),
+        );
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const AResetPasswordScreen()),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Incorrect OTP. Please try again.')),
+        );
+      }
+    } catch (e) {
+      print('Error verifying OTP: $e');
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('OTP verified successfully')),
-      );
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => const AResetPasswordScreen()),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Incorrect OTP')),
+        const SnackBar(content: Text('An error occurred. Please try again.')),
       );
     }
   }
@@ -105,6 +102,7 @@ class _AForgetPasswordScreenState extends State<AForgetPasswordScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       resizeToAvoidBottomInset: false,
+      backgroundColor: appStore.isDarkModeOn ? Colors.black : Colors.white,
       body: Form(
         key: myFormKey,
         child: Padding(
@@ -120,13 +118,10 @@ class _AForgetPasswordScreenState extends State<AForgetPasswordScreen> {
                     child: Container(
                       width: 50,
                       height: 50,
-                      color: appStore.isDarkModeOn
-                          ? context.cardColor
-                          : appetitAppContainerColor,
+                      color: appStore.isDarkModeOn ? context.cardColor : Colors.grey.shade300,
                       child: InkWell(
                         borderRadius: BorderRadius.circular(25),
-                        child: const Icon(Icons.arrow_back_ios_outlined,
-                            color: appetitBrownColor),
+                        child: const Icon(Icons.arrow_back_ios_outlined, color: Colors.white),
                         onTap: () => Navigator.pop(context),
                       ),
                     ),
@@ -137,36 +132,51 @@ class _AForgetPasswordScreenState extends State<AForgetPasswordScreen> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Forgot Password',
-                      style:
-                          TextStyle(fontSize: 40, fontWeight: FontWeight.w800)),
+                  Text(
+                    'Forgot Password',
+                    style: TextStyle(
+                      fontSize: 40,
+                      fontWeight: FontWeight.w800,
+                      color: appStore.isDarkModeOn ? Colors.white : Colors.black,
+                    ),
+                  ),
                   const SizedBox(height: 16),
-                  const Text(
-                      'Enter your email or mobile number to receive an OTP for verification.'),
+                  Text(
+                    'Enter your email to receive an OTP for verification.',
+                    style: TextStyle(
+                      color: appStore.isDarkModeOn ? Colors.grey.shade400 : Colors.black,
+                    ),
+                  ),
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 16.0),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(15),
                       child: TextFormField(
                         textInputAction: TextInputAction.next,
-                        controller: emailOrMobileController,
+                        controller: emailController,
                         autovalidateMode: AutovalidateMode.always,
                         keyboardType: TextInputType.emailAddress,
                         decoration: InputDecoration(
                           border: InputBorder.none,
-                          labelStyle: const TextStyle(color: Colors.grey),
-                          label: const Text('Email or Mobile'),
-                          hintText: 'Enter email or mobile number',
+                          labelStyle: TextStyle(
+                            color: appStore.isDarkModeOn ? Colors.grey.shade400 : Colors.grey,
+                          ),
+                          label: const Text('Email'),
+                          hintText: 'Enter your email address',
                           filled: true,
-                          hintStyle: const TextStyle(color: Colors.grey),
-                          fillColor: appStore.isDarkModeOn
-                              ? context.cardColor
-                              : appetitAppContainerColor,
+                          hintStyle: TextStyle(
+                            color: appStore.isDarkModeOn ? Colors.grey.shade400 : Colors.grey,
+                          ),
+                          fillColor: appStore.isDarkModeOn ? Colors.grey.shade800 : Colors.grey.shade200,
                           suffixIcon: TextButton(
-                              onPressed: sendOTP,
-                              child: Text('Send OTP',
-                                  style: TextStyle(
-                                      color: Colors.deepPurple.shade500))),
+                            onPressed: sendOTP,
+                            child: Text(
+                              'Send OTP',
+                              style: TextStyle(
+                                color: appStore.isDarkModeOn ? Colors.deepPurple.shade300 : Colors.deepPurple.shade500,
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                     ),
@@ -179,14 +189,16 @@ class _AForgetPasswordScreenState extends State<AForgetPasswordScreen> {
                       keyboardType: TextInputType.number,
                       decoration: InputDecoration(
                         border: InputBorder.none,
-                        labelStyle: const TextStyle(color: Colors.grey),
+                        labelStyle: TextStyle(
+                          color: appStore.isDarkModeOn ? Colors.grey.shade400 : Colors.grey,
+                        ),
                         label: const Text('OTP'),
                         hintText: 'Enter your OTP',
-                        hintStyle: const TextStyle(color: Colors.grey),
+                        hintStyle: TextStyle(
+                          color: appStore.isDarkModeOn ? Colors.grey.shade400 : Colors.grey,
+                        ),
                         filled: true,
-                        fillColor: appStore.isDarkModeOn
-                            ? context.cardColor
-                            : appetitAppContainerColor,
+                        fillColor: appStore.isDarkModeOn ? Colors.grey.shade800 : Colors.grey.shade200,
                       ),
                     ),
                   ),
@@ -204,16 +216,20 @@ class _AForgetPasswordScreenState extends State<AForgetPasswordScreen> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.green.shade500,
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(15)),
+                        borderRadius: BorderRadius.circular(15),
+                      ),
                     ),
                     child: const Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text('Next',
-                            style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white)),
+                        Text(
+                          'Next',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
                         SizedBox(width: 10),
                         Icon(
                           Icons.arrow_forward_ios_outlined,
@@ -230,28 +246,5 @@ class _AForgetPasswordScreenState extends State<AForgetPasswordScreen> {
         ),
       ),
     );
-  }
-}
-
-// Placeholder OTP service class
-class OTPService {
-  Future<bool> sendOtpViaEmail(String email) async {
-    // Add your email sending logic here
-    return true;
-  }
-
-  Future<bool> sendOtpViaMobile(String mobile) async {
-    // Add your mobile sending logic here
-    return true;
-  }
-
-  bool verifyOtpForEmail(String email, String otp) {
-    // Add your OTP verification logic for email here
-    return true;
-  }
-
-  bool verifyOtpForMobile(String mobile, String otp) {
-    // Add your OTP verification logic for mobile here
-    return true;
   }
 }

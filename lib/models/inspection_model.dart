@@ -24,7 +24,7 @@ List<InspectionModel> inspections = [
     inspectionName: 'Inspection 1',
     description: 'Description of Inspection 1',
     imageUrl:
-        'assets/icons/inspection.png', // Update the path based on your assets
+    'assets/icons/inspection.png', // Update the path based on your assets
     icon: Icons.report, // Example icon
   ),
   InspectionModel(
@@ -32,7 +32,7 @@ List<InspectionModel> inspections = [
     inspectionName: 'Inspection 2',
     description: 'Description of Inspection 2',
     imageUrl:
-        'assets/icons/inspection.png', // Update the path based on your assets
+    'assets/icons/inspection.png', // Update the path based on your assets
     icon: Icons.report, // Example icon
   ),
   // Add more inspections as needed

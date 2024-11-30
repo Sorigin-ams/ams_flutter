@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sk_ams/Fragments/bookings_fragment.dart';
 import 'package:sk_ams/screens/my_profile_screen.dart';
 import 'package:sk_ams/screens/notification_screen.dart';
 import 'package:sk_ams/Fragments/utils/colors.dart';
 import 'package:sk_ams/Fragments/utils/images.dart';
-
+import 'package:sk_ams/screens/ALoginScreen.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import '../custom_widget/space.dart';
 
 class AccountFragment extends StatefulWidget {
@@ -26,13 +27,56 @@ class _AccountFragmentState extends State<AccountFragment> {
   }
 
   Future<void> _loadUserDetails() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    setState(() {
-      userName = prefs.getString('savedEmail') ??
-          ""; // Assuming savedEmail is used as the username
-      userEmail = prefs.getString('savedEmail') ??
-          ""; // You might want to use another key if you store the name separately
-    });
+    try {
+      final response = await http.get(Uri.parse('https://yourapi.com/user/details'));
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        setState(() {
+          userName = data['name'] ?? "User";
+          userEmail = data['email'] ?? "user@example.com";
+        });
+      } else {
+        // Handle error if the response is not successful
+        throw Exception("Failed to load user data");
+      }
+    } catch (e) {
+      // Display an error message if the API call fails
+      print("Error loading user details: $e");
+    }
+  }
+
+  Future<void> _showLogOutDialog() async {
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text(
+            'Are you sure you want to Logout?',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontWeight: FontWeight.normal, fontSize: 16),
+          ),
+          actions: [
+            TextButton(
+              child: const Text('No'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+            TextButton(
+              child: const Text('Yes'),
+              onPressed: () async {
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (context) => const ALoginScreen()),
+                      (route) => false,
+                );
+              },
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -58,12 +102,11 @@ class _AccountFragmentState extends State<AccountFragment> {
                 width: 90,
                 child: CircleAvatar(backgroundImage: AssetImage(userImage))),
             const Space(8),
-            Text(userName, // Display userName from SharedPreferences
+            Text(userName,
                 textAlign: TextAlign.start,
-                style:
-                    const TextStyle(fontWeight: FontWeight.w900, fontSize: 20)),
+                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 20)),
             const Space(4),
-            Text(userEmail, // Display userEmail from SharedPreferences
+            Text(userEmail,
                 textAlign: TextAlign.start,
                 style: const TextStyle(color: secondaryColor, fontSize: 12)),
             const Space(16),
@@ -102,7 +145,7 @@ class _AccountFragmentState extends State<AccountFragment> {
                     context,
                     MaterialPageRoute(
                         builder: (context) =>
-                            const BookingsFragment(fromProfile: true)));
+                        const BookingsFragment(fromProfile: true)));
               },
             ),
             ListTile(
@@ -121,6 +164,15 @@ class _AccountFragmentState extends State<AccountFragment> {
               title: const Text("Help Center"),
               onTap: () {
                 //
+              },
+            ),
+            ListTile(
+              horizontalTitleGap: 4,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+              leading: const Icon(Icons.logout, size: 20),
+              title: const Text("Log Out"),
+              onTap: () {
+                _showLogOutDialog(); // Call the logout confirmation dialog
               },
             ),
             const Space(16),

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:sk_ams/screens/inspections.dart';
 import 'package:sk_ams/screens/Tasklistscreen.dart';
-// Import color utilities
 
 class ProjectDetailScreen extends StatelessWidget {
   final String projectName;
+
 
   const ProjectDetailScreen({super.key, required this.projectName});
 
@@ -16,9 +16,10 @@ class ProjectDetailScreen extends StatelessWidget {
       appBar: AppBar(
         title: Text(
           projectName,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 20.0,
             fontWeight: FontWeight.bold,
+            color: isDarkMode ? Colors.white : Colors.black,
           ),
         ),
         backgroundColor: isDarkMode ? Colors.grey[900] : Colors.white,
@@ -50,23 +51,23 @@ class ProjectDetailScreen extends StatelessWidget {
                   );
                 },
                 style: ElevatedButton.styleFrom(
+
                   padding: const EdgeInsets.symmetric(vertical: 16.0),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12.0),
                   ),
                   backgroundColor: isDarkMode
                       ? const Color(0xFF212121) // Dark mode button color
-                      : const Color(
-                          0xFFF5F5F5), // Light gray for light mode to match the image
+                      : const Color(0xFFF5F5F5), // Light gray for light mode
                   elevation: 10.0,
                   shadowColor: Colors.black45,
                 ),
-                child: const Text(
+                child: Text(
                   'View Inspections',
                   style: TextStyle(
                     fontSize: 18.0,
                     fontWeight: FontWeight.bold,
-                    color: Colors.black, // Black text color to match image
+                    color: isDarkMode ? Colors.white : Colors.black, // Adjusted for dark mode
                   ),
                 ),
               ),
@@ -93,17 +94,16 @@ class ProjectDetailScreen extends StatelessWidget {
                   ),
                   backgroundColor: isDarkMode
                       ? const Color(0xFF424242) // Dark mode button color
-                      : const Color(
-                          0xFFF5F5F5), // Light gray for light mode to match the image
+                      : const Color(0xFFF5F5F5), // Light gray for light mode
                   elevation: 10.0,
                   shadowColor: Colors.black45,
                 ),
-                child: const Text(
+                child: Text(
                   'View Tasks',
                   style: TextStyle(
                     fontSize: 18.0,
                     fontWeight: FontWeight.bold,
-                    color: Colors.black, // Black text color to match image
+                    color: isDarkMode ? Colors.white : Colors.black, // Adjusted for dark mode
                   ),
                 ),
               ),
@@ -111,6 +111,7 @@ class ProjectDetailScreen extends StatelessWidget {
           ),
         ],
       ),
+      backgroundColor: isDarkMode ? Colors.black : Colors.grey[200], // Background color for the body
     );
   }
 }

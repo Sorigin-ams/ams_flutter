@@ -24,8 +24,7 @@ class _TaskViewScreenState extends State<TaskViewScreen> {
   Future<Map<String, String>> _fetchDataFromApi() async {
     try {
       // Replace with your API URL
-      final response =
-          await http.get(Uri.parse('https://example.com/api/task'));
+      final response = await http.get(Uri.parse('https://example.com/api/task'));
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body) as Map<String, dynamic>;
@@ -37,10 +36,9 @@ class _TaskViewScreenState extends State<TaskViewScreen> {
           'WTG Model': data['wtg_model'] ?? 'N/A',
           'Date Of Inspection': data['date_of_inspection'] ?? 'N/A',
           'Inspection Team Members':
-              (data['inspection_team_members'] as List<dynamic>).join(', ') ??
-                  'N/A',
+          (data['inspection_team_members'] as List<dynamic>).join(', ') ?? 'N/A',
           'Service Provider':
-              (data['service_provider'] as List<dynamic>).join(', ') ?? 'N/A',
+          (data['service_provider'] as List<dynamic>).join(', ') ?? 'N/A',
         };
       } else {
         throw Exception('Failed to load data');
@@ -64,7 +62,7 @@ class _TaskViewScreenState extends State<TaskViewScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Task Details'),
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).appBarTheme.backgroundColor, // Use theme color
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -101,7 +99,7 @@ class _TaskViewScreenState extends State<TaskViewScreen> {
                   return Table(
                     columnWidths: const {
                       0: FixedColumnWidth(150),
-                      1: FixedColumnWidth(150),
+                      1: FlexColumnWidth(), // Adjust column width dynamically
                     },
                     border: TableBorder.all(),
                     children: taskDetails.entries.map((entry) {

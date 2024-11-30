@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import 'package:sk_ams/Fragments/components/profile_widget.dart';
 import 'package:sk_ams/Fragments/components/text_field_widget.dart';
-import 'package:sk_ams/models/customer_details_model.dart';
 import 'package:sk_ams/screens/ADashboardScreen.dart';
 import 'package:sk_ams/Fragments/utils/colors.dart';
 import 'package:sk_ams/Fragments/utils/images.dart';
@@ -19,6 +20,68 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
   String customerMobile = "";
   String customerDesignation = "";
   String customerRole = "";
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserProfile();
+  }
+
+  Future<void> _loadUserProfile() async {
+    try {
+      setState(() => _isLoading = true);
+      final response = await http.get(Uri.parse('https://yourapi.com/user/details'));
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        setState(() {
+          customerName = data['name'] ?? "";
+          customerEmail = data['email'] ?? "";
+          customerMobile = data['mobile'] ?? "";
+          customerDesignation = data['designation'] ?? "";
+          customerRole = data['role'] ?? "";
+        });
+      } else {
+        throw Exception("Failed to load user profile");
+      }
+    } catch (e) {
+      print("Error loading profile: $e");
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _saveUserProfile() async {
+    try {
+      setState(() => _isLoading = true);
+      final response = await http.put(
+        Uri.parse('https://yourapi.com/user/update'),
+        headers: {"Content-Type": "application/json"},
+        body: json.encode({
+          'name': customerName,
+          'email': customerEmail,
+          'mobile': customerMobile,
+          'designation': customerDesignation,
+          'role': customerRole,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (context) => const ADashboardScreen()),
+              (route) => false,
+        );
+      } else {
+        throw Exception("Failed to save user profile");
+      }
+    } catch (e) {
+      print("Error saving profile: $e");
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -44,85 +107,48 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
                 fixedSize: Size(MediaQuery.of(context).size.width, 45),
                 shape: const StadiumBorder(),
               ),
+              onPressed: _saveUserProfile,
               child: const Text("Save", style: TextStyle(fontSize: 16)),
-              onPressed: () {
-                if (customerName != "") {
-                  setName(customerName);
-                }
-                if (customerEmail != "") {
-                  setEmail(customerEmail);
-                }
-                if (customerMobile != "") {
-                  setMobile(customerMobile);
-                }
-                if (customerDesignation != "") {
-                  setDesignation(customerDesignation);
-                }
-                if (customerRole != "") {
-                  setRole(customerRole);
-                }
-                setState(() {
-                  Navigator.pushAndRemoveUntil(
-                    context,
-                    MaterialPageRoute(
-                        builder: (context) => const ADashboardScreen()),
-                    (route) => false,
-                  );
-                });
-              },
             ),
           );
         },
         onClosing: () {},
       ),
-      body: ListView(
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : ListView(
         padding: const EdgeInsets.all(16),
-        shrinkWrap: true,
-        scrollDirection: Axis.vertical,
         children: [
           ProfileWidget(imagePath: userImage, onClicked: () {}),
           const SizedBox(height: 20),
           TextFieldWidget(
             label: "Full Name",
-            text: getName,
-            onChanged: (name) {
-              customerName = name;
-            },
+            text: customerName,
+            onChanged: (name) => setState(() => customerName = name),
           ),
           const SizedBox(height: 15),
           TextFieldWidget(
             label: "Email",
-            text: getEmail,
-            onChanged: (email) {
-              customerEmail = email;
-            },
+            text: customerEmail,
+            onChanged: (email) => setState(() => customerEmail = email),
           ),
           const SizedBox(height: 15),
           TextFieldWidget(
             label: "Mobile",
-            text: getMobile,
-            // maxLines: 5,
-            onChanged: (mobile) {
-              customerMobile = mobile;
-            },
+            text: customerMobile,
+            onChanged: (mobile) => setState(() => customerMobile = mobile),
           ),
           const SizedBox(height: 15),
           TextFieldWidget(
             label: "Designation",
-            text: getMobile,
-            // maxLines: 2,
-            onChanged: (designation) {
-              customerDesignation = designation;
-            },
+            text: customerDesignation,
+            onChanged: (designation) => setState(() => customerDesignation = designation),
           ),
           const SizedBox(height: 15),
           TextFieldWidget(
             label: "Role",
-            text: getMobile,
-            // maxLines: 5,
-            onChanged: (role) {
-              customerRole = role;
-            },
+            text: customerRole,
+            onChanged: (role) => setState(() => customerRole = role),
           ),
         ],
       ),

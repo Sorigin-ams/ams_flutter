@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:sk_ams/screens/taskviewscreen.dart'; // Import the task view screen
-
+import 'package:sk_ams/screens/taskviewscreen.dart';
+// import 'package:http/http.dart' as http; // Commented out for now
 
 class TaskListScreen extends StatefulWidget {
   const TaskListScreen({super.key});
@@ -29,21 +29,32 @@ class _TaskListScreenState extends State<TaskListScreen> {
   }
 
   Future<List<Map<String, dynamic>>> _fetchTasksFromApi() async {
-    try {
-      await Future.delayed(const Duration(seconds: 1)); // Simulate network delay
-      final List<Map<String, dynamic>> sampleTasks = [
-        {'name': 'Task 1', 'details': 'Details for Task 1'},
-        {'name': 'Task 2', 'details': 'Details for Task 2'},
-        {'name': 'Task 3', 'details': 'Details for Task 3'},
-        {'name': 'Task 4', 'details': 'Details for Task 4'},
-        {'name': 'Task 5', 'details': 'Details for Task 5'},
-      ];
+    // Sample tasks for now
+    return [
+      {'name': 'Sample Task 1', 'details': 'Details for Sample Task 1'},
+      {'name': 'Sample Task 2', 'details': 'Details for Sample Task 2'},
+      {'name': 'Sample Task 3', 'details': 'Details for Sample Task 3'},
+      {'name': 'Sample Task 4', 'details': 'Details for Sample Task 4'},
+    ];
 
-      return sampleTasks;
+    // Uncomment this code and replace 'YOUR_API_URL' when ready to fetch from an API
+    /*
+    try {
+      final response = await http.get(Uri.parse('YOUR_API_URL'));
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        return List<Map<String, dynamic>>.from(data.map((item) => {
+          'name': item['name'],
+          'details': item['details'],
+        }));
+      } else {
+        throw Exception('Failed to load tasks');
+      }
     } catch (e) {
       print('Error fetching tasks: $e');
       return []; // Return an empty list on error
     }
+    */
   }
 
   void _filterTasks() {
@@ -98,12 +109,17 @@ class _TaskListScreenState extends State<TaskListScreen> {
               controller: _searchController,
               decoration: InputDecoration(
                 hintText: 'Search tasks...',
+                hintStyle: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12.0),
                   borderSide: BorderSide.none,
                 ),
                 filled: true,
-                fillColor: Colors.grey[200],
+                fillColor: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.grey[800]
+                    : Colors.grey[200],
                 prefixIcon: Icon(Icons.search, color: Theme.of(context).colorScheme.primary),
               ),
             ),

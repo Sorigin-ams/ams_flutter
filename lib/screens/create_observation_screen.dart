@@ -3,7 +3,55 @@ import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:image/image.dart' as img;
 import 'package:flutter/services.dart' show rootBundle;
+import 'package:path_provider/path_provider.dart';
+import 'package:gallery_saver/gallery_saver.dart';
 import 'package:sk_ams/screens/editobservationscreen.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:workmanager/workmanager.dart';
+
+void callbackDispatcher() {
+  Workmanager().executeTask((task, inputData) async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    List<String> savedObservations = prefs.getStringList('observations') ?? [];
+
+    for (String observationJson in savedObservations) {
+      Map<String, dynamic> observation = jsonDecode(observationJson);
+      bool sent = await CreateObservationScreen.sendDataToApi(observation);
+      if (sent) {
+        savedObservations.remove(observationJson);
+        await prefs.setStringList('observations', savedObservations);
+        print('Successfully sent and removed an unsent observation.');
+      } else {
+        print('Failed to send an observation, will retry later.');
+      }
+    }
+    return Future.value(true);
+  });
+}
+
+void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  Workmanager().initialize(callbackDispatcher, isInDebugMode: true);
+  runApp(const MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Observation App',
+      theme: ThemeData(
+        primarySwatch: Colors.blue,
+      ),
+      home: const CreateObservationScreen(),
+    );
+  }
+}
 
 class CreateObservationScreen extends StatefulWidget {
   const CreateObservationScreen({super.key});
@@ -11,90 +59,161 @@ class CreateObservationScreen extends StatefulWidget {
   @override
   _CreateObservationScreenState createState() =>
       _CreateObservationScreenState();
+
+  static Future<bool> sendDataToApi(Map<String, dynamic> observation) async {
+    const String apiUrl = 'https://webigosolutions.in/api3.php';
+    var request = http.MultipartRequest('POST', Uri.parse(apiUrl));
+
+    try {
+      observation.forEach((key, value) {
+        if (value is String) {
+          request.fields[key] = value;
+        }
+      });
+
+      List<dynamic> referenceImages = observation['referenceImages'] ?? [];
+      for (var filePath in referenceImages) {
+        if (filePath != null && await File(filePath).exists()) {
+          request.files.add(await http.MultipartFile.fromPath('referenceImages[]', filePath));
+        }
+      }
+
+      List<dynamic> evidenceImages = observation['evidenceImages'] ?? [];
+      for (var filePath in evidenceImages) {
+        if (filePath != null && await File(filePath).exists()) {
+          request.files.add(await http.MultipartFile.fromPath('evidenceImages[]', filePath));
+        }
+      }
+
+      var response = await request.send();
+      if (response.statusCode == 200) {
+        print('Data and files sent to API successfully');
+        return true;
+      } else {
+        print('Failed to send data to API: ${response.statusCode}');
+        return false;
+      }
+    } catch (e) {
+      print('Error sending data to API: $e');
+      return false;
+    }
+  }
 }
 
 class _CreateObservationScreenState extends State<CreateObservationScreen> {
   final TextEditingController _inspectionByController = TextEditingController();
-  final TextEditingController _inspectionTeamController =
-      TextEditingController();
-  final TextEditingController _inspectionDateController =
-      TextEditingController();
+  final TextEditingController _inspectionTeamController = TextEditingController();
+  final TextEditingController _inspectionDateController = TextEditingController();
   final TextEditingController _observationsController = TextEditingController();
   final TextEditingController _targetDateController = TextEditingController();
-  final TextEditingController _actionToBeTakenController =
-      TextEditingController();
-  final TextEditingController _impactOfDeviationsController =
-      TextEditingController();
-  final TextEditingController _evidenceForNCsClosureController =
-      TextEditingController();
+  final TextEditingController _actionToBeTakenController = TextEditingController();
+  final TextEditingController _impactOfDeviationsController = TextEditingController();
+  final TextEditingController _evidenceForNCsClosureController = TextEditingController();
 
   String _criticality = 'High';
   String _status = 'Open';
 
   final List<File> _referenceImages = [];
-  final List<File?> _evidenceImages = []; // List to hold evidence images
-
+  final List<File?> _evidenceImages = [];
   final ImagePicker _picker = ImagePicker();
+  final List<Map<String, dynamic>> _observations = [];
 
-  final List<Map<String, dynamic>> _observations =
-      []; // List to store observations
+  @override
+  void initState() {
+    super.initState();
 
-  Future<void> _pickImage(
-      ImageSource source, String imageType, int index) async {
+    Workmanager().registerPeriodicTask(
+      'sendUnsentObservations',
+      'sendUnsentObservationsTask',
+      frequency: const Duration(hours: 1),
+    );
+
+    _sendUnsentObservations();
+
+    Connectivity().onConnectivityChanged.listen((connectivityResult) {
+      if (connectivityResult != ConnectivityResult.none) {
+        _sendUnsentObservations();
+      }
+    });
+  }
+
+  Future<void> _sendUnsentObservations() async {
+    if (await _isOnline()) {
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      List<String> savedObservations = prefs.getStringList('observations') ?? [];
+
+      for (String observationJson in List.from(savedObservations)) {
+        Map<String, dynamic> observation = jsonDecode(observationJson);
+        bool sent = await CreateObservationScreen.sendDataToApi(observation);
+        if (sent) {
+          savedObservations.remove(observationJson);
+          await prefs.setStringList('observations', savedObservations);
+          print('Successfully sent and removed an unsent observation.');
+        } else {
+          print('Failed to send an observation, will retry later.');
+        }
+      }
+    }
+  }
+
+  Future<bool> _isOnline() async {
+    var connectivityResult = await Connectivity().checkConnectivity();
+    return connectivityResult != ConnectivityResult.none;
+  }
+
+
+  Future<void> _pickImage(ImageSource source, String imageType, int index) async {
     try {
       final XFile? pickedFile = await _picker.pickImage(source: source);
 
       if (pickedFile != null) {
         File imageFile = File(pickedFile.path);
-
-        // Process the image to add watermark and timestamp
         File watermarkedImage = await _addWatermark(imageFile);
+        File localImage = await _saveImageLocally(watermarkedImage);
+        await GallerySaver.saveImage(watermarkedImage.path, albumName: 'TaskImages');
 
         setState(() {
           if (imageType == 'reference') {
-            _referenceImages.add(watermarkedImage);
+            _referenceImages.add(localImage);
           } else if (imageType == 'evidence') {
             if (index < _evidenceImages.length) {
-              _evidenceImages[index] = watermarkedImage;
+              _evidenceImages[index] = localImage;
             } else {
-              _evidenceImages.add(watermarkedImage);
+              _evidenceImages.add(localImage);
             }
           }
         });
       }
     } catch (e) {
-      // Handle errors here, such as permissions issues
       print('Error picking image: $e');
     }
   }
 
   Future<File> _addWatermark(File imageFile) async {
-    // Load the image file
     img.Image image = img.decodeImage(imageFile.readAsBytesSync())!;
-
-    // Load the watermark image
     img.Image watermark = img.decodeImage(
       (await rootBundle.load('assets/logo.png')).buffer.asUint8List(),
     )!;
-
-    // Resize the watermark image to be smaller
     watermark = img.copyResize(watermark, width: 200, height: 50);
-
-    // Add watermark to image at the bottom-right corner
     img.drawImage(image, watermark,
         dstX: image.width - watermark.width - 10,
         dstY: image.height - watermark.height - 10);
 
-    // Add timestamp to image
     String timestamp = DateTime.now().toIso8601String();
     img.drawString(image, img.arial_24, 10, image.height - 30, timestamp,
-        color: img.getColor(255, 255, 255)); // Use 'getColor'
+        color: img.getColor(255, 255, 255));
 
-    // Save the image
     File watermarkedFile = File('${imageFile.path}_watermarked.png');
     watermarkedFile.writeAsBytesSync(img.encodePng(image));
 
     return watermarkedFile;
+  }
+
+  Future<File> _saveImageLocally(File imageFile) async {
+    final directory = await getApplicationDocumentsDirectory();
+    String newPath = '${directory.path}/${DateTime.now().millisecondsSinceEpoch}_image.png';
+    File localImage = imageFile.copySync(newPath);
+    return localImage;
   }
 
   void _viewImage(File image) {
@@ -127,12 +246,11 @@ class _CreateObservationScreenState extends State<CreateObservationScreen> {
 
   void _addMoreEvidenceImage() {
     setState(() {
-      _evidenceImages.add(null); // Add a new placeholder for the next image
+      _evidenceImages.add(null);
     });
   }
 
-  void _submitForm() {
-    // Collect the data
+  void _submitForm() async {
     Map<String, dynamic> observation = {
       'inspectionBy': _inspectionByController.text,
       'inspectionTeam': _inspectionTeamController.text,
@@ -142,27 +260,110 @@ class _CreateObservationScreenState extends State<CreateObservationScreen> {
       'actionToBeTaken': _actionToBeTakenController.text,
       'impactOfDeviations': _impactOfDeviationsController.text,
       'evidenceForNCsClosure': _evidenceForNCsClosureController.text,
-      'criticality': _criticality,
-      'status': _status,
-      'referenceImages': _referenceImages,
-      'evidenceImages': _evidenceImages,
+      'referenceImages': _referenceImages.map((file) => file.path).toList(),
+      'evidenceImages': _evidenceImages.map((file) => file?.path).toList(),
     };
 
-    // Add observation to the list
-    setState(() {
-      _observations.add(observation);
-    });
+    // Save the observation locally and log it
+    await _saveObservationLocally(observation);
 
-    // Reset the form or navigate to another screen
+    print("Observation saved: $observation"); // Log to verify data
+
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => EditObservationListScreen(
-          observations: _observations,
-        ),
+        builder: (context) => const EditObservationListScreen(),
       ),
     );
   }
+
+
+  Future<void> _saveObservationLocally(Map<String, dynamic> observation) async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+
+    // Load existing observations or initialize to an empty list
+    List<String> savedObservations = prefs.getStringList('observations') ?? [];
+    print("Loaded observations before adding new: $savedObservations");
+
+    // Add the new observation as a JSON-encoded string
+    savedObservations.add(jsonEncode(observation));
+
+    // Save the updated list back to SharedPreferences
+    bool result = await prefs.setStringList('observations', savedObservations);
+    if (result) {
+      print("New observation saved successfully. Current list: $savedObservations");
+    } else {
+      print("Error: Observation did not save.");
+    }
+  }
+
+  Future<bool> _sendDataToApi(Map<String, dynamic> observation) async {
+    const String apiUrl = 'https://webigosolutions.in/api3.php';
+    var request = http.MultipartRequest('POST', Uri.parse(apiUrl));
+
+    try {
+      // Add observation fields to request
+      observation.forEach((key, value) {
+        if (value is String) {
+          request.fields[key] = value;
+        }
+      });
+
+      // Add reference images
+      List<dynamic> referenceImages = observation['referenceImages'] ?? [];
+      for (var filePath in referenceImages) {
+        if (filePath != null && await File(filePath).exists()) {
+          request.files.add(await http.MultipartFile.fromPath('referenceImages[]', filePath));
+        }
+      }
+
+      // Add evidence images
+      List<dynamic> evidenceImages = observation['evidenceImages'] ?? [];
+      for (var filePath in evidenceImages) {
+        if (filePath != null && await File(filePath).exists()) {
+          request.files.add(await http.MultipartFile.fromPath('evidenceImages[]', filePath));
+        }
+      }
+
+      var response = await request.send();
+      if (response.statusCode == 200) {
+        print('Data and files sent to API successfully');
+        return true;
+      } else {
+        print('Failed to send data to API: ${response.statusCode}');
+        return false;
+      }
+    } catch (e) {
+      print('Error sending data to API: $e');
+      return false;
+    }
+  }
+
+
+  Future<void> _saveDataLocally(Map<String, dynamic> observation) async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    List<String> savedObservations = prefs.getStringList('observations') ?? [];
+
+    // Add the new observation to the list
+    savedObservations.add(jsonEncode(observation));
+
+    // Save the updated list back to SharedPreferences
+    await prefs.setStringList('observations', savedObservations);
+  }
+
+
+  Future<void> _removeSentObservation(Map<String, dynamic> observation) async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    List<String> savedObservations = prefs.getStringList('observations') ?? [];
+    savedObservations.remove(jsonEncode(observation));
+    await prefs.setStringList('observations', savedObservations);
+  }
+
+
+
+
+
+
 
   void _showImageSourceDialog(String imageType, int index) {
     showDialog(
@@ -172,21 +373,21 @@ class _CreateObservationScreenState extends State<CreateObservationScreen> {
           title: const Text('Select Image Source'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.photo_library),
-                title: const Text('Gallery'),
-                onTap: () {
-                  Navigator.of(context).pop();
-                  _pickImage(ImageSource.gallery, imageType, index);
-                },
-              ),
+            children: <Widget>[
               ListTile(
                 leading: const Icon(Icons.camera_alt),
                 title: const Text('Camera'),
                 onTap: () {
-                  Navigator.of(context).pop();
+                  Navigator.pop(context);
                   _pickImage(ImageSource.camera, imageType, index);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo),
+                title: const Text('Gallery'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickImage(ImageSource.gallery, imageType, index);
                 },
               ),
             ],
@@ -195,6 +396,7 @@ class _CreateObservationScreenState extends State<CreateObservationScreen> {
       },
     );
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -252,39 +454,73 @@ class _CreateObservationScreenState extends State<CreateObservationScreen> {
             const SizedBox(height: 12),
             _buildImagePicker('Reference Photos', 'reference'),
             const SizedBox(height: 12),
-            _buildTextField(_targetDateController, 'Target Date for Closure'),
+            _buildTextField(_targetDateController, 'Target Date'),
             const SizedBox(height: 12),
-            _buildTextField(_actionToBeTakenController, 'Action to be Taken'),
+            _buildTextField(_actionToBeTakenController, 'Action to be taken'),
             const SizedBox(height: 12),
-            _buildTextField(
-                _impactOfDeviationsController, 'Impact of Deviations'),
+            _buildTextField(_impactOfDeviationsController,
+                'Impact of deviations (if any)'),
             const SizedBox(height: 12),
-            _buildTextField(
-                _evidenceForNCsClosureController, 'Evidence for NCs Closure'),
-            const SizedBox(height: 24),
-            _buildEvidenceImagePicker(),
-            const SizedBox(height: 24),
+            _buildTextField(_evidenceForNCsClosureController,
+                'Evidence for NCs closure'),
+            const SizedBox(height: 12),
+            const Text(
+              'Evidence Photos',
+              style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  color: Colors.black),
+            ),
+            const SizedBox(height: 8),
+            Column(
+              children: _evidenceImages.asMap().entries.map((entry) {
+                int index = entry.key;
+                File? image = entry.value;
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: image != null
+                            ? GestureDetector(
+                          onTap: () => _viewImage(image),
+                          child: Image.file(
+                            image,
+                            height: 100,
+                            fit: BoxFit.cover,
+                          ),
+                        )
+                            : GestureDetector(
+                          onTap: () =>
+                              _showImageSourceDialog('evidence', index),
+                          child: Container(
+                            height: 100,
+                            color: Colors.grey[200],
+                            child: const Center(
+                              child: Icon(Icons.add_a_photo),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        icon: const Icon(Icons.delete),
+                        onPressed: () => _deleteImage('evidence', index),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+            ElevatedButton(
+              onPressed: _addMoreEvidenceImage,
+              child: const Text('Add More Evidence Image'),
+            ),
+            const SizedBox(height: 16),
             Center(
               child: ElevatedButton(
                 onPressed: _submitForm,
-                style: ElevatedButton.styleFrom(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
-                  backgroundColor:
-                      Colors.green[400], // Change background color to green
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(30), // Rounded corners
-                  ),
-                  elevation: 5, // Add elevation for shadow effect
-                ),
-                child: const Text(
-                  'Submit',
-                  style: TextStyle(
-                    fontSize: 18, // Increase font size
-                    fontWeight: FontWeight.bold, // Make the text bold
-                    color: Colors.white, // Change text color to white
-                  ),
-                ),
+                child: const Text('Submit Observation'),
               ),
             ),
           ],
@@ -293,7 +529,8 @@ class _CreateObservationScreenState extends State<CreateObservationScreen> {
     );
   }
 
-  Widget _buildTextField(TextEditingController controller, String labelText) {
+  Widget _buildTextField(
+      TextEditingController controller, String labelText) {
     return TextField(
       controller: controller,
       decoration: InputDecoration(
@@ -305,143 +542,103 @@ class _CreateObservationScreenState extends State<CreateObservationScreen> {
 
   Widget _buildDatePickerField(
       TextEditingController controller, String labelText) {
-    return TextField(
-      controller: controller,
-      readOnly: true,
+    return GestureDetector(
       onTap: () async {
-        DateTime? pickedDate = await showDatePicker(
+        DateTime? selectedDate = await showDatePicker(
           context: context,
           initialDate: DateTime.now(),
           firstDate: DateTime(2000),
           lastDate: DateTime(2101),
         );
-        if (pickedDate != null) {
-          String formattedDate = pickedDate.toIso8601String().split('T')[0];
+        if (selectedDate != null) {
           setState(() {
-            controller.text = formattedDate;
+            controller.text = selectedDate.toString().substring(0, 10);
           });
         }
       },
-      decoration: InputDecoration(
-        labelText: labelText,
-        border: const OutlineInputBorder(),
+      child: AbsorbPointer(
+        child: TextField(
+          controller: controller,
+          decoration: InputDecoration(
+            labelText: labelText,
+            border: const OutlineInputBorder(),
+          ),
+        ),
       ),
     );
   }
 
-  Widget _buildDropdown(
-      String labelText, List<String> options, ValueChanged<String?> onChanged) {
+  Widget _buildDropdown(String labelText, List<String> options,
+      ValueChanged<String?> onChanged) {
     return DropdownButtonFormField<String>(
-      value: options.first,
       decoration: InputDecoration(
         labelText: labelText,
         border: const OutlineInputBorder(),
       ),
-      items: options.map((String value) {
+      value: options.first,
+      items: options.map((option) {
         return DropdownMenuItem<String>(
-          value: value,
-          child: Text(value),
+          value: option,
+          child: Text(option),
         );
       }).toList(),
       onChanged: onChanged,
     );
   }
 
-  Widget _buildImagePicker(String label, String imageType) {
+  Widget _buildImagePicker(String labelText, String imageType) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        Text(
+          labelText,
+          style: const TextStyle(
+              fontWeight: FontWeight.bold, fontSize: 16, color: Colors.black),
+        ),
         const SizedBox(height: 8),
         Wrap(
-          spacing: 8,
+          spacing: 8.0,
+          runSpacing: 8.0,
           children: _referenceImages.map((image) {
-            return Stack(
-              children: [
-                GestureDetector(
-                  onTap: () => _viewImage(image),
-                  child: Image.file(image,
-                      width: 100, height: 100, fit: BoxFit.cover),
-                ),
-                Positioned(
-                  right: 0,
-                  top: 0,
-                  child: IconButton(
-                    icon: const Icon(Icons.delete, color: Colors.red),
-                    onPressed: () => _deleteImage(
-                        'reference', _referenceImages.indexOf(image)),
+            return GestureDetector(
+              onTap: () => _viewImage(image),
+              child: Stack(
+                alignment: Alignment.topRight,
+                children: [
+                  Image.file(
+                    image,
+                    height: 100,
+                    fit: BoxFit.cover,
                   ),
-                ),
-              ],
-            );
-          }).toList(),
-        ),
-        const SizedBox(height: 8),
-        ElevatedButton.icon(
-          onPressed: () => _showImageSourceDialog(imageType, 0),
-          icon: const Icon(Icons.add_a_photo),
-          label: const Text('Add Image'),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildEvidenceImagePicker() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text('Evidence Photos',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 8),
-        Column(
-          children: _evidenceImages.asMap().entries.map((entry) {
-            int index = entry.key;
-            File? image = entry.value;
-            return Column(
-              children: [
-                if (image != null)
-                  Stack(
-                    children: [
-                      GestureDetector(
-                        onTap: () => _viewImage(image),
-                        child: Image.file(image,
-                            width: 100, height: 100, fit: BoxFit.cover),
-                      ),
-                      Positioned(
-                        right: 0,
-                        top: 0,
-                        child: IconButton(
-                          icon: const Icon(Icons.delete, color: Colors.red),
-                          onPressed: () => _deleteImage('evidence', index),
-                        ),
-                      ),
-                    ],
+                  Positioned(
+                    top: -10,
+                    right: -10,
+                    child: IconButton(
+                      icon: const Icon(Icons.delete),
+                      onPressed: () =>
+                          _deleteImage(imageType, _referenceImages.indexOf(image)),
+                    ),
                   ),
-                const SizedBox(height: 8),
-                ElevatedButton.icon(
-                  onPressed: () => _showImageSourceDialog('evidence', index),
-                  icon: const Icon(Icons.add_a_photo),
-                  label: Text('Add Evidence Image ${index + 1}'),
-                ),
-              ],
-            );
-          }).toList(),
-        ),
-        const SizedBox(height: 8),
-        GestureDetector(
-          onTap: _addMoreEvidenceImage,
-          child: const Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                '+ Add More Evidence',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ],
               ),
-            ],
-          ),
+            );
+          }).toList()
+            ..add(
+              GestureDetector(
+                onTap: () => _showImageSourceDialog(imageType, 0),
+                child: Container(
+                  height: 100,
+                  width: 100,
+                  color: Colors.grey[200],
+                  child: const Center(
+                    child: Icon(Icons.add_a_photo),
+                  ),
+                ),
+              ),
+            ),
         ),
       ],
     );
   }
 }
+// above inspection by field add two fileds of inspection name and inspection details. and its hould be atomatically filed with data from previous screen.

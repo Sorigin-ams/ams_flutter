@@ -1,0 +1,1 @@
+// above inspection by field add two fileds of inspection name and inspection details. and its hould be atomatically filed with data from previous screen.

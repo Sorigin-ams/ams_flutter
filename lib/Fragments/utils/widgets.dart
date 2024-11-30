@@ -3,20 +3,27 @@ import 'package:sk_ams/models/last_bookings_model.dart';
 import 'package:sk_ams/screens/ADashboardScreen.dart';
 import 'package:sk_ams/Fragments/utils/colors.dart';
 
-InputDecoration commonInputDecoration(
-    {String? hintText, Widget? prefixIcon, Widget? suffixIcon}) {
+InputDecoration commonInputDecoration({
+  String? hintText,
+  Widget? prefixIcon,
+  Widget? suffixIcon,
+  TextStyle? hintStyle, // Add this optional parameter
+}) {
   return InputDecoration(
     filled: true,
     fillColor: textFieldColor,
     hintText: hintText,
     prefixIcon: prefixIcon,
     suffixIcon: suffixIcon,
-    hintStyle: TextStyle(color: hintTextColor, fontSize: 16),
+    hintStyle: hintStyle ?? TextStyle(color: hintTextColor, fontSize: 16), // Use the passed hintStyle or fallback to default
     contentPadding: const EdgeInsets.symmetric(horizontal: 16),
     border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none),
+        borderRadius: BorderRadius.circular(30),
+        borderSide: BorderSide.none
+    ),
   );
 }
+
 
 Widget homeTitleWidget({
   String? titleText,
